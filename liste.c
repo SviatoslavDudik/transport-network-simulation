@@ -1,6 +1,7 @@
 #include "liste.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 liste_t *liste_init() {
 	liste_t *l;
@@ -15,7 +16,8 @@ liste_t *liste_init() {
 	return l;
 }
 
-void liste_liberer(liste_t *l) {
+void liste_detruire(liste_t *l) {
+	assert(l!=NULL);
 	while (l->taille > 0)
 		liste_rem_tete(l);
 	free(l);
@@ -35,6 +37,7 @@ struct maillon *new_maillon(void *donnee) {
 
 void liste_add_tete(liste_t *l, void *donnee) {
 	struct maillon *m;
+	assert(l!=NULL);
 	m = new_maillon(donnee);
 	m->suivant = l->tete;
 	l->tete = m;
@@ -45,6 +48,7 @@ void liste_add_tete(liste_t *l, void *donnee) {
 
 void liste_add_queue(liste_t *l, void *donnee) {
 	struct maillon *m;
+	assert(l!=NULL);
 	m = new_maillon(donnee);
 	if (l->taille == 0)
 		l->tete = m;
@@ -57,6 +61,8 @@ void liste_add_queue(liste_t *l, void *donnee) {
 void *liste_rem_tete(liste_t *l) {
 	struct maillon *m;
 	void *d;
+	assert(l!=NULL);
+	assert(l->taille>0);
 	m = l->tete;
 	d = m->donnee;
 	l->tete = l->tete->suivant;
@@ -68,9 +74,12 @@ void *liste_rem_tete(liste_t *l) {
 	return d;
 }
 
-void *liste_rem_element(liste_t *l, struct maillon *prec) {
+void *liste_rem_suivant(liste_t *l, struct maillon *prec) {
 	struct maillon *m;
 	void *d;
+	assert(l!=NULL);
+	assert(l->taille>0);
+	assert(prec != l->queue);
 	if (prec == NULL)
 		return liste_rem_tete(l);
 

@@ -13,11 +13,11 @@ typedef struct {
 } liste_t;
 
 liste_t *liste_init();
-void liste_liberer(liste_t*);
+void liste_detruire(liste_t*);
 struct maillon *new_maillon(void*);
 void liste_add_tete(liste_t*, void*);
 void liste_add_queue(liste_t*, void*);
 void *liste_rem_tete(liste_t*);
-void *liste_rem_element(liste_t*, struct maillon*);
+void *liste_rem_suivant(liste_t*, struct maillon*);
 int liste_vide(liste_t*);
 #endif

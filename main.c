@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define MAX_PATH_LEN 256
 #define MAX_STR_LEN 256
@@ -32,7 +33,11 @@ void lire_passagers(const char *path, liste_t **stations) {
 		fscanf(f, "# %ld %d %d %d %d %d\n",
 				&(p->id), &(p->station_depart), &(p->station_arrivee),
 				&(p->temps_ecoule), &(p->transfert), &(p->temps_att_max));
-		liste_add_queue(stations[p->station_depart], p);
+		if (p->station_depart < p->station_arrivee) {
+			liste_add_queue(stations[STATION_DIR_CROI(p->station_depart)], p);
+		} else {
+			liste_add_queue(stations[STATION_DIR_DECR(p->station_depart)], p);
+		}
 	}
 	fclose(f);
 }
@@ -83,7 +88,7 @@ int main(int argc, char **argv) {
 	char path_pass[MAX_PATH_LEN];
 	char path_trajet[MAX_PATH_LEN];
 	pid_t pid;
-	int i, nb_bus;
+	int i, err, nb_bus;
 	const char *nom_fifo = "fifo";
 	if (argc == 3) {
 		strncpy(path_pass, argv[1], MAX_PATH_LEN);
@@ -93,7 +98,11 @@ int main(int argc, char **argv) {
 		printf("Usage: %s <fichier_passagers> <fichier_trajets>", argv[0]);
 		return EXIT_SUCCESS;
 	}
-	mkfifo(nom_fifo, 0644);
+	if (((err = mkfifo(nom_fifo, 0644)) != 0) && (err == EEXIST)) {
+		perror("mkfifo");
+		return EXIT_FAILURE;
+	}
+
 	pid = fork();
 	if (pid == -1) {
 		perror("Erreur fork taxi");
@@ -102,12 +111,12 @@ int main(int argc, char **argv) {
 	if (pid == 0) {
 		creer_taxis(nom_fifo);
 	} else {
-		stations = malloc(sizeof(liste_t*)*(NB_STATIONS_BUS+2*NB_STATIONS_METRO));
+		stations = malloc(sizeof(liste_t*)*NB_STATIONS_TOTAL);
 		if (stations == NULL) {
 			fprintf(stderr, "Erreur allocation stations\n");
 			return EXIT_FAILURE;
 		}
-		for (i = 0; i<NB_STATIONS_BUS+2*NB_STATIONS_METRO; i++) {
+		for (i = 0; i<NB_STATIONS_TOTAL; i++) {
 			stations[i] = liste_init();
 		}
 		trajets = liste_init();
