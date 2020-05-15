@@ -1,7 +1,5 @@
 #include "transport.h"
 
-#include <assert.h>
-
 long creer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets, int nb_bus) {
 	struct maillon *m;
 	pthread_mutex_t *mutex_stations;
@@ -170,7 +168,6 @@ int embarquer(liste_t *passagers, liste_t **stations, int indice_st, int metro, 
 		pthread_mutex_lock(mutex_corresp);
 	while (stations[indice_st]->taille > 0 && passagers->taille < capacite) {
 		p = liste_rem_tete(stations[indice_st]);
-		assert(p!=NULL);
 		liste_add_queue(passagers, p);
 		printf("%sembarque le passager %ld\n", debut_mess, p->id);
 		nb_pass++;
@@ -226,7 +223,6 @@ int debarquer(liste_t *passagers, liste_t **stations, int num_station, int metro
 			}
 			p->transfert = 0;
 			pthread_mutex_lock(mutex_corresp);
-			assert(p!=NULL);
 			liste_add_queue(stations[corr], p);
 			pthread_mutex_unlock(mutex_corresp);
 			printf("%stranfert passager %ld vers station %d\n", debut_mess, p->id, num_station_corr);
