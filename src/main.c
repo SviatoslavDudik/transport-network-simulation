@@ -1,3 +1,4 @@
+#define _POSIX_SOURCE
 #include "transport.h"
 #include "taxi.h"
 #include "liste.h"
@@ -5,11 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <signal.h>
 
 #define MAX_PATH_LEN 256
 #define MAX_STR_LEN 256
@@ -89,6 +92,7 @@ int main(int argc, char **argv) {
 	char path_trajet[MAX_PATH_LEN];
 	pid_t pid;
 	int i, err, nb_bus;
+	long somme;
 	const char *nom_fifo = "fifo";
 	if (argc == 3) {
 		strncpy(path_pass, argv[1], MAX_PATH_LEN);
@@ -123,8 +127,18 @@ int main(int argc, char **argv) {
 		lire_passagers(path_pass, stations);
 		nb_bus = lire_trajets(path_trajet, trajets);
 
-		creer_transport(nom_fifo, stations, trajets, nb_bus);
+		somme = creer_transport(nom_fifo, stations, trajets, nb_bus);
 		free(stations);
+
+		kill(pid, SIGUSR1);
+		if (waitpid(pid, &err, 0) == -1) {
+			perror("waitpid");
+			return EXIT_FAILURE;
+		}
+		if (WEXITSTATUS(err) == EXIT_FAILURE)
+			return EXIT_FAILURE;
+
+		printf("Somme : %ld\n", somme);
 	}
 	return EXIT_SUCCESS;
 }
