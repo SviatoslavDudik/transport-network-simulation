@@ -1,4 +1,31 @@
 #include "transport.h"
+#include "constantes.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <semaphore.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+struct arg_vehicule {
+	liste_t *trajet;
+	liste_t **stations;
+	sem_t *sem;
+	sem_t *sem_verif;
+	sem_t *sem_arg;
+	pthread_mutex_t *mutex_corresp;
+	int est_metro;
+	int *termine;
+};
+
+struct arg_verif {
+	liste_t **stations;
+	sem_t *sem_verif;
+	sem_t *sem_vehicule;
+	int fifo;
+	int nb_vehic;
+	int *termine;
+};
 
 long creer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets, int nb_bus) {
 	struct maillon *m;
