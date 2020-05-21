@@ -13,26 +13,28 @@
 #include <unistd.h>
 #include <errno.h>
 
-/** structure pour passer les arguments à la fonction #taxi. */
+/** structure pour passer les arguments à la fonction #taxi(void *arg). */
 struct arg_taxi {
 	int id;							/**< identifiant */
 	int fifo;						/**< descripteur de fichier du pipe nommé */
-	pthread_mutex_t *mutex_fifo;	/**< assure l'exclusion mutuelle lors des accès au pipe nommé */
 	sem_t *sem_arg;					/**< donne suffisamment de temps à un thread pour qu'il récupère les arguments */
 };
 
 /** variable booléenne pour signaler la fin du programme.
  * Quand cette variable vaut faux, les threads continuent à s'exécuter.
- * Si elle vaut vrai, les threads se terminent
+ * Si elle vaut vrai, les threads se terminent.
  */
 int termine = 0;
+/** semaphore responsable du pipe nommé et de #termine.
+ * Le semaphore doit être testé avant d'accéder au pipe nommé.
+ */
+sem_t sem;
 
-void creer_taxis(const char *nom_fifo) {
+void gerer_taxis(const char *nom_fifo) {
 	int i, fifo;
 	pthread_t pthread_taxi[NB_TAXIS];
 	struct arg_taxi arg;
 	sem_t sem_arg;
-	pthread_mutex_t mutex;
 
 	if (signal(SIGUSR1, terminer) == SIG_ERR) {
 		perror("signal SIGUSR1");
@@ -42,12 +44,11 @@ void creer_taxis(const char *nom_fifo) {
 
 	/* création des threads taxi */
 	sem_init(&sem_arg, 0, 1);
-	pthread_mutex_init(&mutex, NULL);
+	sem_init(&sem, 0, 1);
 	for (i = 0; i<NB_TAXIS; i++) {
 		sem_wait(&sem_arg);
 		arg.id = i;
 		arg.fifo = fifo;
-		arg.mutex_fifo = &mutex;
 		arg.sem_arg = &sem_arg;
 		if (pthread_create(pthread_taxi+i, NULL, taxi, &arg) != 0) {
 			fprintf(stderr, "Erreur creation pthread taxi\n");
@@ -63,40 +64,42 @@ void creer_taxis(const char *nom_fifo) {
 			exit(EXIT_FAILURE);
 		}
 	}
-	pthread_mutex_destroy(&mutex);
+	sem_destroy(&sem);
 }
 
 void terminer(int sig) {
+	int i;
 	termine = 1;
+	/* debloquer les threads */
+	for (i = 0; i<NB_TAXIS; i++)
+		sem_post(&sem);
 }
 
 void *taxi(void *arg) {
 	int id, fifo;
 	passager_t p;
 	char debut_mess[15];
-	pthread_mutex_t *mutex;
 	struct arg_taxi *a;
 
 	a = arg;
 	id = a->id;
 	fifo = a->fifo;
-	mutex = a->mutex_fifo;
 	/* récupération des arguments terminée */
 	sem_post(a->sem_arg);
 
 	snprintf(debut_mess, 15, "taxi %d : ", id);
 	while (!termine) {
-		pthread_mutex_lock(mutex);
-		/* !termine sert à éviter le blocage infini
-		 * dans read à la fin du programme */
-		if (!termine && read(fifo, &p, sizeof(passager_t)) == -1) {
+		sem_wait(&sem);
+		/* si termine est vrai, alors le thread sera bloqué dans read */
+		if (termine || read(fifo, &p, sizeof(passager_t)) != sizeof(passager_t)) {
 			/* le cas où l'erreur n'est pas liée au signal reçu */
-			if (errno != EINTR) {
+			if (errno) {
 				perror("taxi read passager");
 				exit(EXIT_FAILURE);
 			}
+			break;
 		}
-		pthread_mutex_unlock(mutex);
+		sem_post(&sem);
 
 		usleep(10);
 		printf("%spassager %ld est rendu a la station %d\n",

@@ -6,7 +6,7 @@
  * peut sortir avec EXIT_FAILURE en cas d'erreur
  * @param[in] nom_fifo nom du pipe nommé d'où les passagers seront lus
  */
-void creer_taxis(const char* nom_fifo);
+void gerer_taxis(const char* nom_fifo);
 
 /** handler pour un signal, entraine la terminaison des threads.
  * met #termine à 1 (vrai)
