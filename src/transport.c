@@ -30,7 +30,7 @@ struct arg_verif {
 									  rendez-vous bilatéral, composé de tous les #arg_vehicule.sem_verif */
 	sem_t *sem_vehicule;			/**< tableau de sémaphores débloquant les véhicules lors du rendez-vous bilatéral,
 									  contient tous les #arg_vehicule.sem */
-	int fifo;						/**< descripteur de fifchier du pipe nommé */
+	int fifo;						/**< descripteur de fichier du pipe nommé */
 	int nb_vehic;					/**< nombre de véhicles (bus + métro) */
 	int *termine;					/**< pointeur vers un booléen commun à tous les threads valant vrai si le programme
 									  est terminé */
@@ -213,10 +213,6 @@ void *vehicule(void *arg) {
 			embarquer(passagers, a->stations, u.i, a->est_metro, a->mutex_corresp);
 			/* rendez-vous bilatéral avec le vérificateur */
 			sem_post(a->sem_verif);
-			sem_post(a->sem_verif);
-			if (sem_trywait(a->sem_verif) == -1) {
-				perror("sem_trywait");
-			}
 			sem_wait(a->sem);
 			p = p->suivant;
 		}
