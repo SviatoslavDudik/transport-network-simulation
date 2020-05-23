@@ -1,3 +1,4 @@
+/** @file */
 #define _POSIX_SOURCE
 #include "transport.h"
 #include "taxi.h"
@@ -17,9 +18,50 @@
 #define MAX_PATH_LEN 256
 #define MAX_STR_LEN 256
 
+/** lit les passagers à partir d'un fichier et les met dans les stations.
+ * La fonction utilise le fichier passé dans les paramètres pour créer les
+ * passagers.
+ * La première ligne du fichier doit contenir un seul nombre - le nombre de
+ * passagers dans le fichier.
+ * Chaque ligne consécutive commence par un dièse (#) et une espace.
+ * Après la ligne doit contenir 6 entiers séparés par des espaces correspondant
+ * dans l'ordre aux informations présentes dans la structure #passager_t.
+ *
+ * Le tableau de stations doit être de taille NB_STATIONS_TOTAL.
+ * Chaque élément du tableau doit être une liste initialisée, possiblement vide.
+ * @param[in] path chemin vers le fichier contenant les passagers
+ * @param[in,out] stations tableau de stations initialisées
+ */
 void lire_passagers(const char *path, liste_t **stations);
+
+/** lit les trajets à partir d'un fichier et les ajoute à la liste de trajets
+ * La fonction utilise le fichier passé dans les paramètres pour définir les
+ * trajets des véhicules (bus et métro).
+ * La première ligne du fichier doit contenir deux nombres : le nombre de bus
+ * et le nombre de métros.
+ *
+ * Chaque ligne consécutive définit l'itinéraire d'un véhicule. On énumère
+ * d'abord les trajets des bus et ensuite ceux des métros.
+ * Une contient quelques nombres qui ne se répètent pas dans une même ligne.
+ * Ces nombres représentent les stations desservies par le véhicule.
+ *
+ * On suppose qu'un bus parcours ses stations circulairement et un métro fait
+ * des allers-retours.
+ * @param[in] path chemin vers le fichier contenant les trajets
+ * @param[in,out] trajets liste de trajets
+ */
 int lire_trajets(const char *path, liste_t *trajets);
 
+/** la fonction principale du programme.
+ * Le programme attend 2 paramètres : chemin vers le fichier avec les passagers
+ * et chemin vers le fichier avec les trajets.
+ *
+ * Cette fonction lit les passagers et les trajets, crée un processus fils.
+ * Le processus fils gère les taxi à travers la fonction #gerer_taxis().
+ * Le processus père gère les transport en commun à travers #gerer_transport().
+ *
+ * À la fin de l'exécution la fonction affiche le revenu total.
+ */
 int main(int argc, char **argv) {
 	liste_t **stations;
 	liste_t *trajets;
@@ -40,6 +82,7 @@ int main(int argc, char **argv) {
 		perror("mkfifo");
 		return EXIT_FAILURE;
 	}
+
 
 	pid = fork();
 	if (pid == -1) {

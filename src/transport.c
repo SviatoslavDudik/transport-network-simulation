@@ -9,30 +9,40 @@
 
 /** structure pour passer les arguments à la fonction #vehicule(void *arg). */
 struct arg_vehicule {
-	liste_t *trajet;				/**< liste des stations qui composent le trajet du véhicule */
+	liste_t *trajet;				/**< liste des stations qui composent le
+									  trajet du véhicule */
 	liste_t **stations;				/**< liste des toutes les stations */
-	sem_t *sem;						/**< sémaphore qui sera débloqué par le vérificateur lors du rendez-vous
-									  bilatéral, un de #arg_verif.sem_vehicule
-									  */
-	sem_t *sem_verif;				/**< sémaphore débloquant le vérificateur lors du rendez-vous bilatéral avec le
-									  vérificateur, un de #arg_verif.sem_verif
-									  */
-	pthread_mutex_t *mutex_corresp;	/**< mutex assurant l'accès aux stations qui possèdent une correspondance */
-	int est_metro;					/**< booléen valant vrai ssi le véhicule est un métro */
-	int *termine;					/**< pointeur vers un booléen commun à tous les threads valant vrai si le programme
+	sem_t *sem_vehicule;			/**< sémaphore qui sera débloqué par le
+									  vérificateur lors du rendez-vous
+									  bilatéral, un de #arg_verif.sem_vehicule */
+	sem_t *sem_verif;				/**< sémaphore débloquant le vérificateur
+									  lors du rendez-vous bilatéral avec le
+									  vérificateur, un de #arg_verif.sem_verif */
+	pthread_mutex_t *mutex_corresp;	/**< mutex assurant l'accès aux stations
+									  qui possèdent une correspondance */
+	int est_metro;					/**< booléen valant vrai ssi le véhicule
+									  est un métro */
+	int *termine;					/**< pointeur vers un booléen commun à tous
+									  les threads valant vrai si le programme
 									  est terminé */
 };
 
-/** structure pour passer les arguments à la fonction #verificateur(void *arg). */
+/** structure pour passer les arguments à la fonction #verificateur(void *arg).
+ */
 struct arg_verif {
 	liste_t **stations;				/**< liste des toutes les stations */
-	sem_t *sem_verif;				/**< tableau de sémaphores qui seront débloqués par les véhicules lors du
-									  rendez-vous bilatéral, composé de tous les #arg_vehicule.sem_verif */
-	sem_t *sem_vehicule;			/**< tableau de sémaphores débloquant les véhicules lors du rendez-vous bilatéral,
-									  contient tous les #arg_vehicule.sem */
+	sem_t *sem_verif;				/**< tableau de sémaphores qui seront
+									  débloqués par les véhicules lors du
+									  rendez-vous bilatéral, composé de tous
+									  les #arg_vehicule.sem_verif */
+	sem_t *sem_vehicule;			/**< tableau de sémaphores débloquant les
+									  véhicules lors du rendez-vous bilatéral,
+									  contient tous les
+									  #arg_vehicule.sem_vehicule */
 	int fifo;						/**< descripteur de fichier du pipe nommé */
 	int nb_vehic;					/**< nombre de véhicles (bus + métro) */
-	int *termine;					/**< pointeur vers un booléen commun à tous les threads valant vrai si le programme
+	int *termine;					/**< pointeur vers un booléen commun à tous
+									  les threads valant vrai si le programme
 									  est terminé */
 };
 
@@ -107,7 +117,7 @@ pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus,
 		}
 		arg->trajet = m->donnee;
 		arg->stations = stations;
-		arg->sem = sem_vehicule+i;
+		arg->sem_vehicule = sem_vehicule+i;
 		arg->sem_verif = sem_verif+i;
 		arg->mutex_corresp = mutex;
 		arg->est_metro = i>=nb_bus;
@@ -213,7 +223,7 @@ void *vehicule(void *arg) {
 			embarquer(passagers, a->stations, u.i, a->est_metro, a->mutex_corresp);
 			/* rendez-vous bilatéral avec le vérificateur */
 			sem_post(a->sem_verif);
-			sem_wait(a->sem);
+			sem_wait(a->sem_vehicule);
 			p = p->suivant;
 		}
 
@@ -345,7 +355,7 @@ void *verificateur(void *arg) {
 	/* terminaison des véhicules */
 	*(a->termine) = 1;
 	/* débloquer les véhicules pour qu'ils puissent terminer correctement */
-	for (i = 0; i<NB_STATIONS_TOTAL; i++)
+	for (i = 0; i<2*NB_STATIONS_TOTAL; i++)
 		for (j = 0; j<a->nb_vehic; j++)
 			sem_post(a->sem_vehicule+j);
 
