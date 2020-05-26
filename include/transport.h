@@ -47,6 +47,7 @@ long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets,
  * @param[in] nb_bus nombre de bus
  * @param[in] sem_vehicule tableau de sémaphores pour débloquer les véhicules
  * @param[in] sem_verif tableau de sémaphores pour débloquer le vérificateur
+ * @param[in] sem_nonvides sémaphore indiquant le nombre de véhicules non vides
  * @param[in] mutex mutex permettant d'accéder aux stations avec une
  * correspondance, doit être initialisés auparavant
  * @param[in] termine pointeur sur une variable booléenne valant vrai si le
@@ -54,7 +55,7 @@ long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets,
  * @return tableau de threads créés
  * @see gerer_transport() pour les détails de stations
  */
-pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus, sem_t *sem_vehicule, sem_t *sem_verif, pthread_mutex_t *mutex, int *termine);
+pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus, sem_t *sem_vehicule, sem_t *sem_verif, sem_t *sem_nonvides, pthread_mutex_t *mutex, int *termine);
 
 /** Crée le threads du vérificateur.
  * La fonction crée le vérificateur en lui passant les arguments nécessaires.
@@ -67,6 +68,7 @@ pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus, sem
  * @param[in] stations tableau de toutes les stations du système
  * @param[in] sem_vehicule tableau de sémaphores pour débloquer les véhicules
  * @param[in] sem_verif tableau de sémaphores pour débloquer le vérificateur
+ * @param[in] sem_nonvides sémaphore indiquant le nombre de véhicules non vides
  * @param[in] fifo descripteur de fichier du pipe nommé
  * @param[in] nb_vehicules nombre total de véhicules
  * @param[in] termine pointeur sur une variable booléenne valant vrai si le
@@ -74,7 +76,7 @@ pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus, sem
  * @return pointeur vers le thread créé
  * @see gerer_transport() pour les détails de stations
  */
-pthread_t *creer_verificateur(liste_t **stations, sem_t *sem_vehicule, sem_t *sem_verif, int fifo, int nb_vehicules, int *termine);
+pthread_t *creer_verificateur(liste_t **stations, sem_t *sem_vehicule, sem_t *sem_verif, sem_t *sem_nonvides, int fifo, int nb_vehicules, int *termine);
 
 /** Attend la terminaison de tous les threads et renvoie le revenu.
  * Après execution de cette fonction tous les threads associés aux transports et au vérificateur sont terminés.

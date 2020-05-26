@@ -107,6 +107,7 @@ int main(int argc, char **argv) {
 		somme = gerer_transport(nom_fifo, stations, trajets, nb_bus);
 
 		free(stations);
+		fflush(stdout);
 		/* envoie du signal de fin au processus fils et attente de sa terminaison */
 		kill(pid, SIGUSR1);
 		if (waitpid(pid, &err, 0) == -1) {

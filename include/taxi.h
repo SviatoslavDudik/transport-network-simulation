@@ -8,12 +8,6 @@
  */
 void gerer_taxis(const char* nom_fifo);
 
-/** handler pour un signal, entraine la terminaison des threads.
- * met #termine à 1 (vrai)
- * @param[in] sig numéro du signal
- */
-void terminer(int sig);
-
 /** simule un taxi.
  * reçoit un passager du pipe nommé, le conduit à sa destination
  * @param[in] arg arguments nécessaires pour un taxi, type struct arg_taxi *

@@ -22,6 +22,7 @@ struct arg_vehicule {
 									  qui possèdent une correspondance */
 	int est_metro;					/**< booléen valant vrai ssi le véhicule
 									  est un métro */
+	sem_t *sem_nonvides;			/**< indique le nombre de véhicules non vides */
 	int *termine;					/**< pointeur vers un booléen commun à tous
 									  les threads valant vrai si le programme
 									  est terminé */
@@ -41,6 +42,7 @@ struct arg_verif {
 									  #arg_vehicule.sem_vehicule */
 	int fifo;						/**< descripteur de fichier du pipe nommé */
 	int nb_vehic;					/**< nombre de véhicles (bus + métro) */
+	sem_t *sem_nonvides;			/**< indique le nombre de véhicules non vides */
 	int *termine;					/**< pointeur vers un booléen commun à tous
 									  les threads valant vrai si le programme
 									  est terminé */
@@ -49,15 +51,16 @@ struct arg_verif {
 long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets, int nb_bus) {
 	pthread_mutex_t *mutex_stations;
 	pthread_t *pthread_vehicule, *pthread_verif;
-	sem_t *sem_vehicule, *sem_verif;
+	sem_t *sem_vehicule, *sem_verif, *sem_nonvides;
 	int i, fifo, *termine;
 	long sum;
 
 	sem_vehicule = malloc(sizeof(sem_t)*trajets->taille);
 	sem_verif = malloc(sizeof(sem_t)*trajets->taille);
+	sem_nonvides = malloc(sizeof(sem_t));
 	mutex_stations = malloc(sizeof(pthread_mutex_t));
 	termine = malloc(sizeof(int));
-	if (!sem_vehicule || !sem_verif || !mutex_stations || !termine) {
+	if (!sem_vehicule || !sem_verif || !sem_nonvides || !mutex_stations || !termine) {
 		fprintf(stderr, "Erreur allocation creer transport\n");
 		exit(EXIT_FAILURE);
 	}
@@ -66,17 +69,18 @@ long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets,
 		sem_init(sem_vehicule+i, 0, 0);
 		sem_init(sem_verif+i, 0, 0);
 	}
+	sem_init(sem_nonvides, 0, 0);
 
 	/* créations des transports */
 	pthread_mutex_init(mutex_stations, NULL);
 	*termine = 0;
 	pthread_vehicule = creer_transport(stations, trajets, nb_bus, sem_vehicule,
-			sem_verif, mutex_stations, termine);
+			sem_verif, sem_nonvides, mutex_stations, termine);
 
 	/* création du vérificateur */
 	fifo = open(nom_fifo, O_WRONLY);
-	pthread_verif = creer_verificateur(stations, sem_vehicule, sem_verif, fifo,
-			trajets->taille, termine);
+	pthread_verif = creer_verificateur(stations, sem_vehicule, sem_verif,
+			sem_nonvides, fifo, trajets->taille, termine);
 
 	/* join des threads et récupération de la valeur de retour */
 	sum = calculer_revenu(pthread_vehicule, pthread_verif, trajets->taille);
@@ -85,11 +89,13 @@ long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets,
 		sem_destroy(sem_vehicule+i);
 		sem_destroy(sem_verif+i);
 	}
+	sem_destroy(sem_nonvides);
 	pthread_mutex_destroy(mutex_stations);
 	free(pthread_vehicule);
 	free(pthread_verif);
 	free(sem_vehicule);
 	free(sem_verif);
+	free(sem_nonvides);
 	free(mutex_stations);
 	free(termine);
 	close(fifo);
@@ -97,7 +103,8 @@ long gerer_transport(const char *nom_fifo, liste_t **stations, liste_t *trajets,
 }
 
 pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus,
-		sem_t *sem_vehicule, sem_t *sem_verif, pthread_mutex_t *mutex, int *termine) {
+		sem_t *sem_vehicule, sem_t *sem_verif, sem_t *sem_nonvides,
+		pthread_mutex_t *mutex, int *termine) {
 	struct maillon *m;
 	pthread_t *pthread_id;
 	struct arg_vehicule *arg;
@@ -121,6 +128,7 @@ pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus,
 		arg->sem_verif = sem_verif+i;
 		arg->mutex_corresp = mutex;
 		arg->est_metro = i>=nb_bus;
+		arg->sem_nonvides = sem_nonvides;
 		arg->termine = termine;
 		if (pthread_create(pthread_id+i, NULL, vehicule, arg) != 0) {
 			fprintf(stderr, "Erreur creation pthread véhicule\n");
@@ -133,7 +141,8 @@ pthread_t *creer_transport(liste_t **stations, liste_t *trajets, int nb_bus,
 }
 
 pthread_t *creer_verificateur(liste_t **stations, sem_t *sem_vehicule,
-		sem_t *sem_verif, int fifo, int nb_vehicules, int *termine) {
+		sem_t *sem_verif, sem_t *sem_nonvides, int fifo, int nb_vehicules,
+		int *termine) {
 	struct arg_verif *arg;
 	pthread_t *pthread;
 
@@ -149,6 +158,7 @@ pthread_t *creer_verificateur(liste_t **stations, sem_t *sem_vehicule,
 	arg->sem_vehicule = sem_vehicule;
 	arg->fifo = fifo;
 	arg->nb_vehic = nb_vehicules;
+	arg->sem_nonvides = sem_nonvides;
 	arg->termine = termine;
 	if (pthread_create(pthread, NULL, verificateur, arg) != 0) {
 		fprintf(stderr, "Erreur creation pthread vérificateur\n");
@@ -186,7 +196,7 @@ long calculer_revenu(pthread_t *pthread_vehicule, pthread_t *pthread_verif, int 
 }
 
 void *vehicule(void *arg) {
-	int i, dec;
+	int i, dec, vide;
 	long *sum;
 	union int_pvoid u;
 	struct maillon *p, *suiv;
@@ -201,17 +211,24 @@ void *vehicule(void *arg) {
 	*sum = 0;
 	passagers = liste_init();
 	p = a->trajet->tete;
-	/* decalage de la station intiale pour un metro */
+	/* décalage de la station initiale pour un metro */
 	if (a->est_metro) {
 		dec = a->trajet->taille/2 - 1;
 		for (i = 0; i<dec; i++)
 			p = p->suivant;
 	}
-	while (!(*(a->termine)) || passagers->taille>0) {
+	vide = 1;
+	while (!(*(a->termine))) {
 		/* p pointe sur la station du a->trajet où on se trouve */
 		while (p != NULL) {
 			u.p = p->donnee;
 			*sum += debarquer(passagers, a->stations, u.i, a->est_metro, a->mutex_corresp);
+			/* décrémentation du nombre de véhicules nonvides */
+			if (!vide && liste_vide(passagers)) {
+				sem_wait(a->sem_nonvides);
+				vide = 1;
+			}
+
 			/* recherche de la direction */
 			if (a->est_metro) {
 				suiv = p->suivant ? p->suivant : a->trajet->tete;
@@ -222,6 +239,12 @@ void *vehicule(void *arg) {
 				}
 			}
 			embarquer(passagers, a->stations, u.i, a->est_metro, a->mutex_corresp);
+			/* incrementation du nombre de véhicules nonvides */
+			if (vide && !liste_vide(passagers)) {
+				sem_post(a->sem_nonvides);
+				vide = 0;
+			}
+
 			/* rendez-vous bilatéral avec le vérificateur */
 			sem_post(a->sem_verif);
 			sem_wait(a->sem_vehicule);
@@ -302,7 +325,7 @@ int debarquer(liste_t *passagers, liste_t **stations, int num_station, int metro
 			if (p->station_arrivee == corr) {
 				/* on compte le transfert */
 				nb_pass++;
-				printf("%stranfert passager %ld vers station %d (station d'arrivee)\n", debut_mess,
+				printf("%stransfert passager %ld vers station %d (station d'arrivee)\n", debut_mess,
 						p->id, correspondance[num_station]);
 				continue;
 			}
@@ -327,7 +350,7 @@ int debarquer(liste_t *passagers, liste_t **stations, int num_station, int metro
 }
 
 void *verificateur(void *arg) {
-	int i, j, stations_vides;
+	int i, j, stations_vides, vehicules_nonvides;
 	long *sum;
 	struct arg_verif *a;
 	a = arg;
@@ -338,22 +361,23 @@ void *verificateur(void *arg) {
 	}
 	*sum = 0;
 	stations_vides = 0;
-	while (!stations_vides) {
-		stations_vides = 1;
-		for (i = 0; i<NB_STATIONS_TOTAL; i++) {
-			/* attente pour que chaque véhicule termine son cycle*/
-			for (j = 0; j<a->nb_vehic; j++)
-				sem_wait(a->sem_verif+j);
+	vehicules_nonvides = 0;
+	/* attente pour que chaque véhicule termine son cycle*/
+	for (j = 0; j<a->nb_vehic; j++)
+		sem_wait(a->sem_verif+j);
 
-			if (verifier_passagers(a->stations, a->fifo, sum) == 0)
-				stations_vides = 0;
+	while (!stations_vides || vehicules_nonvides>0) {
+		/* lancement du cycle suivant de chaque véhicule */
+		for (j = 0; j<a->nb_vehic; j++)
+			sem_post(a->sem_vehicule+j);
+		/* attente pour que chaque véhicule termine son cycle*/
+		for (j = 0; j<a->nb_vehic; j++)
+			sem_wait(a->sem_verif+j);
 
-			/* lancement du cycle suivant de chaque véhicule */
-			for (j = 0; j<a->nb_vehic; j++)
-				sem_post(a->sem_vehicule+j);
-		}
+		stations_vides = verifier_passagers(a->stations, a->fifo, sum);
+		sem_getvalue(a->sem_nonvides,&vehicules_nonvides);
 	}
-	/* terminaison des véhicules */
+	/* met fin aux véhicules */
 	*(a->termine) = 1;
 	/* débloquer les véhicules pour qu'ils puissent terminer correctement */
 	for (i = 0; i<2*NB_STATIONS_TOTAL; i++)
@@ -388,7 +412,7 @@ int verifier_passagers(liste_t **stations, int fifo, long *sum) {
 				printf("%stransfert du passager %ld vers le taxi\n", debut_mess, p->id);
 				write(fifo, p, sizeof(passager_t));
 				free(p);
-				*sum += 3;
+				(*sum) += 3;
 			} else {
 				prec = m;
 				m = m->suivant;

@@ -1,0 +1,13 @@
+Pour compiler le programme :
+	make
+
+Pour exécuter avec les jeux d'essais :
+	./main test/test10k test/test_trajet
+
+Le fichier test_trajet correspond aux itinéraires donnés dans l'énoncé.
+
+Pour compiler la documentation :
+	make doc
+Pour la documentation en LaTeX il faut en plus exécuter :
+	cd doc/latex && make
+
