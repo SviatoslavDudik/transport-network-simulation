@@ -9,13 +9,13 @@
 /** Gère le système de transport publique.
  * La fonction crée les véhicules et le vérificateur et attend leur terminaison.
  *
- * stations est un tableau de liste de passagers.
+ * stations est un tableau de listes de passagers.
  * Chaque station est une liste de passagers représentant une file.
  * La taille du tableau est supérieur au nombre de stations.
  * En effet, les stations de métro ont deux sens, on a une file par sens.
  * Les terminus ont aussi deux sens mais seulement un est utilisé.
- * On suppose que d'abord il y a #NB_STATIONS_BUS stations de bus suivis de
- * 2*#NB_STATIONS_METRO files de métro.
+ * On suppose que dans le tableau il y a d'abord #NB_STATIONS_BUS stations de
+ * bus suivis de 2*#NB_STATIONS_METRO files de métro.
  * Le sens est déterminé avec l'ordre des stations: ordre croissant de numéros
  * ou ordre décroissant (comme dans un arbre de recherche).
  *

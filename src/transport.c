@@ -198,6 +198,7 @@ void *vehicule(void *arg) {
 		fprintf(stderr, "Erreur allocation sum véhicule\n");
 		exit(EXIT_FAILURE);
 	}
+	*sum = 0;
 	passagers = liste_init();
 	p = a->trajet->tete;
 	/* decalage de la station intiale pour un metro */
@@ -301,7 +302,7 @@ int debarquer(liste_t *passagers, liste_t **stations, int num_station, int metro
 			if (p->station_arrivee == corr) {
 				/* on compte le transfert */
 				nb_pass++;
-				printf("%stranfert passager %ld vers station %d\n", debut_mess,
+				printf("%stranfert passager %ld vers station %d (station d'arrivee)\n", debut_mess,
 						p->id, correspondance[num_station]);
 				continue;
 			}
